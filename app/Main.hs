@@ -1,3 +1,11 @@
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE EmptyDataDecls             #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -11,12 +19,20 @@ import Data.Text
 import Data.Aeson
 import Yesod
 
+share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
+EmailMessage
+    title String
+    body String
+    deriving Show
+|]
+instance Generic EmailMessage
+
 data HelloWorld = HelloWorld
 
-data EmailMessage = EmailMessage {
-    title :: Text,
-    body  :: Text
-  } deriving (Generic, Show, Eq)
+--data EmailMessage = EmailMessage {
+--    title :: Text,
+--    body  :: Text
+--  } deriving (Generic, Show, Eq)
 
 instance ToJSON EmailMessage
 instance FromJSON EmailMessage
