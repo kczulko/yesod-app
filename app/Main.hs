@@ -18,6 +18,8 @@ module Main where
 import GHC.Generics
 import Data.Text
 import Data.Aeson
+import Control.Monad.Logger(runStderrLoggingT)
+import Control.Monad.Trans.Resource (runResourceT)
 import Yesod
 import Database.Persist
 import Database.Persist.Postgresql
@@ -30,16 +32,31 @@ EmailMessage json
     deriving Show
 |]
 
-data HelloWorld = HelloWorld
+data HelloWorld = HelloWorld ConnectionPool
+instance Yesod HelloWorld
+instance YesodPersist HelloWorld where
+  type YesodPersistBackend HelloWorld = SqlBackend
+  runDB action = do
+    HelloWorld pool <- getYesod
+    runSqlPool action pool
 
 mkYesod "HelloWorld" [parseRoutes|
 /sendmail SendMailR POST
 |]
 
-instance Yesod HelloWorld
-
 postSendMailR :: Handler Text
-postSendMailR = (pack . show) <$> (requireCheckJsonBody :: Handler EmailMessage)
+postSendMailR = do
+  token <- lookupBearerAuth
+  liftIO $ print token
+  emailMsg <- requireCheckJsonBody :: Handler EmailMessage
+  value <- runDB $ insert emailMsg
+  return $ pack . show $ emailMsg
+
+connStr = "host=0.0.0.0 dbname=test user=test password=test port=5432"
 
 main :: IO ()
-main = warp 3000 HelloWorld
+main = runStderrLoggingT $ withPostgresqlPool connStr 10 $ \pool -> liftIO $ do
+    runResourceT $ flip runSqlPool pool $ do
+      runMigration migrateAll
+    warp 3000 $ HelloWorld pool
+
